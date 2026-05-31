@@ -1,0 +1,7 @@
+# Secrets - NUNCA subir pro git
+db-secret.yaml
+api-secret.yaml
+
+# Variáveis de ambiente
+.env
+*.env
