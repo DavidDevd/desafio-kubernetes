@@ -11,7 +11,7 @@ DB_URL = (
 )
 engine = create_engine(DB_URL)
 
-# Cria tabela na inicialização
+# Create table during startup for the local demo.
 with engine.connect() as conn:
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS dados (
@@ -21,24 +21,28 @@ with engine.connect() as conn:
     """))
     conn.commit()
 
+
 @app.get("/status")
 def status():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"status": "Conexão OK"}
+        return {"status": "connection ok"}
     except OperationalError:
-        return {"status": "Erro na conexão"}, 500
+        return {"status": "connection error"}, 500
+
 
 @app.post("/dados")
 def inserir(info: str):
     with engine.connect() as conn:
         conn.execute(text("INSERT INTO dados (info) VALUES (:info)"), {"info": info})
         conn.commit()
-    return {"mensagem": "Inserido com sucesso"}
+    return {"message": "inserted successfully"}
+
 
 @app.get("/dados")
 def listar():
     with engine.connect() as conn:
         result = conn.execute(text("SELECT * FROM dados"))
         return [{"id": row[0], "info": row[1]} for row in result]
+
