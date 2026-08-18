@@ -1,45 +1,53 @@
-# Kubernetes FastAPI + PostgreSQL Challenge
+# FastAPI + PostgreSQL on Kubernetes
 
-Kubernetes project that deploys a FastAPI application connected to PostgreSQL in a local Kind cluster.
+**Cloud-native deployment case focused on orchestration, persistence, configuration and reliability foundations.**
 
-This repository demonstrates application deployment, service discovery, persistent storage, ConfigMaps, example Secrets, probes and horizontal pod autoscaling.
+Kubernetes · Kind · FastAPI · PostgreSQL · Docker · HPA · Probes
 
-## What This Project Shows
+## Engineering goal
 
-- Local Kubernetes cluster with Kind
-- FastAPI container image
-- PostgreSQL Deployment and Service
-- PersistentVolume and PersistentVolumeClaim
-- ConfigMap-based application configuration
-- Example Secret manifests without real credentials
-- Liveness and readiness probes
-- HorizontalPodAutoscaler for the API
+This project deploys a containerized FastAPI application connected to PostgreSQL in a local Kind cluster. It demonstrates the Kubernetes primitives required to move beyond simply starting containers: service discovery, configuration, persistent data, health probes and horizontal autoscaling.
 
 ## Architecture
 
-```text
-Namespace desafio-api
-  API Deployment
-  API Service
-  ConfigMap
-  Example Secret
-  HPA
-       |
-       v
-Namespace desafio-db
-  PostgreSQL Deployment
-  PostgreSQL Service
-  Example Secret
-  PV/PVC
+```mermaid
+flowchart TB
+    CLIENT[Local Client] --> API_SVC[API Service]
+    API_SVC --> API[FastAPI Deployment]
+    CM[ConfigMap] --> API
+    SEC1[Example Secret] --> API
+    HPA[HorizontalPodAutoscaler] --> API
+    API --> DB_SVC[PostgreSQL Service]
+    DB_SVC --> DB[PostgreSQL Deployment]
+    SEC2[Example Secret] --> DB
+    DB --> PVC[PersistentVolumeClaim]
+    PVC --> PV[PersistentVolume]
 ```
 
-The API connects to PostgreSQL through the internal Kubernetes DNS name:
+The API resolves PostgreSQL through Kubernetes DNS:
 
 ```text
 postgres-svc.desafio-db.svc.cluster.local:5432
 ```
 
-## Repository Structure
+## Reliability foundations
+
+- **Liveness probe** — verifies whether the application remains alive.
+- **Readiness probe** — controls whether a pod is ready to receive traffic.
+- **HPA** — demonstrates horizontal scaling configuration for the API.
+- **Persistent storage** — separates database lifecycle from pod lifecycle through PV/PVC.
+- **Service discovery** — API-to-database communication uses Kubernetes internal DNS.
+- **Configuration separation** — ConfigMaps and example Secret manifests keep runtime configuration outside application code.
+
+## Kubernetes resources
+
+| Area | Resources |
+| --- | --- |
+| API | Deployment, Service, ConfigMap, example Secret, HPA |
+| Database | Deployment, Service, example Secret, PV, PVC |
+| Cluster | Kind cluster configuration, separate namespaces |
+
+## Repository structure
 
 ```text
 api/
@@ -56,9 +64,9 @@ db-secret.example.yaml
 kind-cluster.yaml
 ```
 
-## How To Run
+## Run locally
 
-Create the local cluster:
+Create the cluster and namespaces:
 
 ```bash
 kind create cluster --config kind-cluster.yaml
@@ -75,7 +83,7 @@ kind load docker-image desafio-api:v1 --name desafio-cluster
 cd ..
 ```
 
-Apply the database resources:
+Apply database resources:
 
 ```bash
 kubectl apply -f db-secret.example.yaml
@@ -83,7 +91,7 @@ kubectl apply -f db-pv.yaml
 kubectl apply -f db-deployment.yaml
 ```
 
-Apply the API resources:
+Apply API resources:
 
 ```bash
 kubectl apply -f api-configmap.yaml
@@ -92,21 +100,13 @@ kubectl apply -f api-deployment.yaml
 kubectl apply -f api-hpa.yaml
 ```
 
-Expose the API locally:
+Expose the service locally:
 
 ```bash
 kubectl port-forward svc/api-svc 8080:80 -n desafio-api
 ```
 
-Test it:
-
-```bash
-curl http://localhost:8080/status
-curl -X POST "http://localhost:8080/dados?info=hello"
-curl http://localhost:8080/dados
-```
-
-## Useful Checks
+## Validate the deployment
 
 ```bash
 kubectl get pods -n desafio-api
@@ -117,9 +117,21 @@ kubectl get hpa -n desafio-api
 kubectl logs -f deployment/api -n desafio-api
 ```
 
-## Security Notes
+Application checks:
 
-- Real secret manifests are ignored by Git.
-- Only `*.example.yaml` Secret manifests should be committed.
-- This project is intended for local study and portfolio demonstration.
+```bash
+curl http://localhost:8080/status
+curl -X POST "http://localhost:8080/dados?info=hello"
+curl http://localhost:8080/dados
+```
 
+## Security boundary
+
+Real Secret manifests are intentionally excluded from Git. Only `*.example.yaml` files belong in the public repository. This project is designed for local study and portfolio demonstration rather than a production-cluster claim.
+
+## Skills demonstrated
+
+**Kubernetes** — workloads, Services, namespaces, configuration and autoscaling  
+**Reliability foundations** — liveness, readiness and operational checks  
+**Data** — PostgreSQL with persistent storage  
+**Backend** — containerized FastAPI service
