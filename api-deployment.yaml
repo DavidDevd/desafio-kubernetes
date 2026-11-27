@@ -31,15 +31,17 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
+          # Liveness only checks the process, so a database outage takes
+          # pods out of the Service (readiness) instead of restarting them.
           livenessProbe:
             httpGet:
-              path: /status
+              path: /livez
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /status
+              path: /readyz
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 5

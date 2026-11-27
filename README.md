@@ -32,8 +32,9 @@ postgres-svc.desafio-db.svc.cluster.local:5432
 
 ## Reliability foundations
 
-- **Liveness probe** — verifies whether the application remains alive.
-- **Readiness probe** — controls whether a pod is ready to receive traffic.
+- **Liveness probe (`/livez`)** — only checks that the process answers. It never touches the database, so a database outage cannot make Kubernetes restart every API pod.
+- **Readiness probe (`/readyz`)** — returns `503` until PostgreSQL answers and the schema exists, keeping the pod out of the Service until then.
+- **Startup without the database** — the schema is created on the first successful readiness check instead of at import time, so the API starts even while PostgreSQL is still booting.
 - **HPA** — demonstrates horizontal scaling configuration for the API.
 - **Persistent storage** — separates database lifecycle from pod lifecycle through PV/PVC.
 - **Service discovery** — API-to-database communication uses Kubernetes internal DNS.
@@ -120,10 +121,33 @@ kubectl logs -f deployment/api -n desafio-api
 Application checks:
 
 ```bash
-curl http://localhost:8080/status
+curl -i http://localhost:8080/livez    # 200 while the process is up
+curl -i http://localhost:8080/readyz   # 200 when PostgreSQL answers, 503 otherwise
 curl -X POST "http://localhost:8080/dados?info=hello"
 curl http://localhost:8080/dados
 ```
+
+`/status` is kept for compatibility and follows the same contract as `/readyz`.
+
+## Tests and CI
+
+```bash
+pip install -r api/requirements-dev.txt
+pytest api
+```
+
+The tests cover the probe contract without a real cluster: liveness stays
+`200` with the database down, readiness and `/status` return `503`, the API
+starts while the database is unavailable and recovers when it comes back.
+The CI workflow runs them and validates every manifest with `kubeconform`.
+
+### Bug found and fixed
+
+`/status` used Flask-style `return {...}, 500`. FastAPI serializes that tuple as
+a **200** JSON list, so the probes never failed, even with PostgreSQL down.
+Liveness and readiness also shared that endpoint, which would have restarted
+every pod during a database outage once the status code was fixed. Both are
+now covered by regression tests.
 
 ## Security boundary
 
